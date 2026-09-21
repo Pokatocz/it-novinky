@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>IT novinky dne</title>
-<meta name="description" content="Tři aktuální novinky ze světa IT z ověřených českých zdrojů, shrnuté na 2–3 minuty mluvení. Aktualizuje se každý den v 5:00.">
+<meta name="description" content="Tři aktuální novinky ze světa IT z ověřených českých zdrojů — tři samostatné mluvené výklady, každý zhruba na 3 minuty. Aktualizuje se každý den v 5:00.">
 <style>
   :root {
     --bg: #f4f6fb;
@@ -40,7 +40,7 @@
     font-family: "Segoe UI", system-ui, -apple-system, Roboto, "Helvetica Neue", Arial, sans-serif;
     line-height: 1.6;
   }
-  .wrap { max-width: 820px; margin: 0 auto; padding: 28px 16px 60px; }
+  .wrap { max-width: 860px; margin: 0 auto; padding: 28px 16px 60px; }
   header h1 { margin: 0 0 4px; font-size: 1.9rem; letter-spacing: -0.02em; }
   .date { color: var(--muted); font-size: 1.05rem; margin: 0; }
   .meta {
@@ -56,7 +56,7 @@
   .card {
     display: flex; gap: 14px;
     background: var(--card); border: 1px solid var(--line); border-radius: 14px;
-    padding: 18px 18px 14px; margin-bottom: 14px;
+    padding: 20px 20px 16px; margin-bottom: 18px;
   }
   .num {
     flex: 0 0 auto; width: 38px; height: 38px; border-radius: 10px;
@@ -64,21 +64,15 @@
     display: flex; align-items: center; justify-content: center;
     font-weight: 700; font-size: 1.1rem;
   }
-  .card-body { min-width: 0; }
-  .card h2 { margin: 4px 0 8px; font-size: 1.15rem; line-height: 1.35; }
-  .summary { margin: 0 0 10px; }
-  .src { margin: 0; font-size: 0.9rem; color: var(--muted); }
+  .card-body { min-width: 0; flex: 1; }
+  .card h2 { margin: 4px 0 8px; font-size: 1.2rem; line-height: 1.35; }
+  .meta-line { margin: 0 0 12px; display: flex; flex-wrap: wrap; gap: 8px; }
+  .vyklad p { margin: 0 0 12px; }
+  .vyklad p:last-child { margin-bottom: 4px; }
+  .src { margin: 6px 0 12px; font-size: 0.9rem; color: var(--muted); }
   .src a { color: var(--accent); font-weight: 600; text-decoration: none; }
   .src a:hover { text-decoration: underline; }
-  section.spoken {
-    background: var(--card); border: 1px solid var(--line); border-radius: 14px;
-    padding: 18px; margin-top: 28px;
-  }
-  section.spoken h2 { margin: 0 0 6px; font-size: 1.2rem; }
-  section.spoken .hint { margin: 0 0 12px; color: var(--muted); font-size: 0.9rem; }
-  #mluveny-text p { margin: 0 0 12px; }
-  #mluveny-text p:last-child { margin-bottom: 0; }
-  .btns { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 14px; }
+  .btns { display: flex; flex-wrap: wrap; gap: 10px; }
   button {
     font: inherit; font-size: 0.95rem; font-weight: 600;
     padding: 9px 16px; border-radius: 10px; cursor: pointer;
@@ -86,12 +80,13 @@
   }
   button.primary { background: var(--accent); color: var(--accent-ink); border-color: transparent; }
   button:hover { filter: brightness(1.05); }
+  .page-btns { margin: 6px 0 0; }
   footer { margin-top: 30px; color: var(--muted); font-size: 0.85rem; }
   footer a { color: var(--accent); }
   @media print {
     body { background: #fff; color: #000; }
     .btns, .no-print { display: none !important; }
-    .card, section.spoken { border-color: #bbb; break-inside: avoid; }
+    .card { border-color: #bbb; break-inside: avoid; }
   }
 </style>
 </head>
@@ -101,9 +96,9 @@
     <h1>&#128240; IT novinky dne</h1>
     <p class="date"><time datetime="2026-09-21">pondělí 21. září 2026</time></p>
     <div class="meta">
-      <span class="chip">&#127908; mluvení cca 1,5 min (209 slov)</span>
-      <span class="chip">3 novinky &middot; ověřené zdroje</span>
-      <span class="chip">aktualizace každý den v 5:00</span>
+      <span class="chip">&#127908; 3 samostatn&eacute; v&yacute;klady &middot; ka&#382;d&yacute; pro jednoho mluv&#269;&iacute;ho</span>
+      <span class="chip">ov&#283;&#345;en&eacute; zdroje</span>
+      <span class="chip">aktualizace ka&#382;d&yacute; den v 5:00</span>
     </div>
   </header>
 
@@ -139,53 +134,46 @@
         </div>
       </article>
 
-    <section class="spoken">
-      <h2>&#128483;&#65039; Mluvená verze pro přednes</h2>
-      <p class="hint">Souvislý text na přečtení nahlas — i s pozdravem a závěrem.</p>
-      <div id="mluveny-text">
-      <p>Dobrý den, mám pro vás tři aktuální novinky ze světa IT. Je pondělí 21. září 2026.</p>
-      <p>Novinka číslo 1, ze serveru Lupa.cz: Praha dá do nové generace aplikace Lítačka 25 milionů. Pražští radní schválili částku 25 milionů Kč na další vývoj nové generace aplikace PID Lítačka. Dalších 6 milionů má jít z ROPID a IDSK, organizátorů veřejné dopravy v Praze a Středočeském kraji, kteří společně zajišťují fungování a rozvoj systému Pražské integrované dopravy. Vývoj nové PID Lítačka 2.0 zajišťuje městská společnost OICT a má být technologickým základem pro další digitální služby v dopravě v Praze a Středočeském kraji.</p>
-      <p>Novinka číslo 2, ze serveru CzechCrunch: Po stamilionovém exitu dál rostou. Na českém řešení jede 100 tisíc aplikací, propojilo se s ChatGPT a Claudem. Uživatelé českého nástroje Macaly nově mohou přímo v chatech vytvářet weby nebo aplikace a publikovat je i s databází a hostingem na vlastní doméně.</p>
-      <p>Novinka číslo 3, ze serveru Root.cz: Postřehy z bezpečnosti: umělá inteligence chce nahradit finanční poradce. V dnešním díle se podíváme na finance pod taktovkou umělé inteligence, jak Revolut uvěřil podvrženému vládnímu emailu, podvody severokorejských uchazečů o práci i na závažnou chybu v modemech telefonů Google Pixel.</p>
-      <p>To je z dnešních novinek všechno, děkuji za pozornost. Odkazy na všechny zdroje jsou uvedené na stránce.</p>
-      </div>
-      <div class="btns">
-        <button class="primary" id="copyBtn" type="button">Zkopírovat mluvený text</button>
-        <button type="button" onclick="window.print()">Vytisknout</button>
-      </div>
-    </section>
+    <div class="btns page-btns no-print">
+      <button type="button" onclick="window.print()">Vytisknout v&scaron;echny v&yacute;klady</button>
+    </div>
   </main>
 
   <footer>
-    <p><strong>Pro učitele:</strong> u každé novinky je odkaz na původní článek. Shrnutí připravila
-    automaticky umělá inteligence z uvedených zdrojů (Root.cz, Lupa.cz, CzechCrunch) — před přednesem je dobré
-    si zdroje projít.</p>
-    <p>Vygenerováno automaticky 21. 09. 2026 19:12 &middot; stránka běží na GitHub Pages a data se
-    obnovují každý den v&nbsp;5:00 ráno.</p>
+    <p><strong>Pro u&#269;itele:</strong> u ka&#382;d&eacute; novinky je odkaz na p&#367;vodn&iacute; &#269;l&aacute;nek.
+    V&yacute;klady p&#345;ipravila automaticky um&#283;l&aacute; inteligence z uveden&yacute;ch zdroj&#367; (Root.cz, Lupa.cz, CzechCrunch);
+    u v&yacute;klad&#367; se &scaron;t&iacute;tkem &bdquo;text ze zdroje (bez AI)&ldquo; jde o perex a za&#269;&aacute;tek
+    p&#367;vodn&iacute;ho &#269;l&aacute;nku v doslovn&eacute;m zn&#283;n&iacute;. P&#345;ed p&#345;ednesem je dobr&eacute; si zdroje proj&iacute;t.</p>
+    <p>Vygenerov&aacute;no automaticky 21. 09. 2026 19:30 &middot; str&aacute;nka b&#283;&#382;&iacute; na GitHub Pages a data se
+    obnovuj&iacute; ka&#382;d&yacute; den v&nbsp;5:00 r&aacute;no.</p>
   </footer>
 </div>
 
 <script>
-  var SPOKEN = "Dobrý den, mám pro vás tři aktuální novinky ze světa IT. Je pondělí 21. září 2026.\n\nNovinka číslo 1, ze serveru Lupa.cz: Praha dá do nové generace aplikace Lítačka 25 milionů. Pražští radní schválili částku 25 milionů Kč na další vývoj nové generace aplikace PID Lítačka. Dalších 6 milionů má jít z ROPID a IDSK, organizátorů veřejné dopravy v Praze a Středočeském kraji, kteří společně zajišťují fungování a rozvoj systému Pražské integrované dopravy. Vývoj nové PID Lítačka 2.0 zajišťuje městská společnost OICT a má být technologickým základem pro další digitální služby v dopravě v Praze a Středočeském kraji.\n\nNovinka číslo 2, ze serveru CzechCrunch: Po stamilionovém exitu dál rostou. Na českém řešení jede 100 tisíc aplikací, propojilo se s ChatGPT a Claudem. Uživatelé českého nástroje Macaly nově mohou přímo v chatech vytvářet weby nebo aplikace a publikovat je i s databází a hostingem na vlastní doméně.\n\nNovinka číslo 3, ze serveru Root.cz: Postřehy z bezpečnosti: umělá inteligence chce nahradit finanční poradce. V dnešním díle se podíváme na finance pod taktovkou umělé inteligence, jak Revolut uvěřil podvrženému vládnímu emailu, podvody severokorejských uchazečů o práci i na závažnou chybu v modemech telefonů Google Pixel.\n\nTo je z dnešních novinek všechno, děkuji za pozornost. Odkazy na všechny zdroje jsou uvedené na stránce.";
-  document.getElementById("copyBtn").addEventListener("click", function () {
-    var btn = this;
-    function done(ok) {
-      btn.textContent = ok ? "Zkopírováno ✓" : "Kopírování se nepovedlo";
-      setTimeout(function () { btn.textContent = "Zkopírovat mluvený text"; }, 2000);
-    }
-    if (navigator.clipboard && navigator.clipboard.writeText) {
-      navigator.clipboard.writeText(SPOKEN).then(function () { done(true); },
+  var SPOKENS = %%SPOKENS_JSON%%;
+  document.querySelectorAll(".copy-btn").forEach(function (btn) {
+    btn.addEventListener("click", function () {
+      var i = parseInt(btn.getAttribute("data-i"), 10);
+      var text = SPOKENS[i] || "";
+      var orig = btn.textContent;
+      function done(ok) {
+        btn.textContent = ok ? "Zkopírováno ✓" : "Kopírování se nepovedlo";
+        setTimeout(function () { btn.textContent = orig; }, 2000);
+      }
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).then(function () { done(true); },
                                                  function () { done(false); });
-    } else {
-      var ta = document.createElement("textarea");
-      ta.value = SPOKEN;
-      document.body.appendChild(ta);
-      ta.select();
-      var ok = false;
-      try { ok = document.execCommand("copy"); } catch (e) {}
-      document.body.removeChild(ta);
-      done(ok);
-    }
+      } else {
+        var ta = document.createElement("textarea");
+        ta.value = text;
+        document.body.appendChild(ta);
+        ta.select();
+        var ok = false;
+        try { ok = document.execCommand("copy"); } catch (e) {}
+        document.body.removeChild(ta);
+        done(ok);
+      }
+    });
   });
 </script>
 </body>
