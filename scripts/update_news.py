@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """
-Denní IT novinky — stáhne RSS z ověřených českých zdrojů, vybere 3 novinky,
-shrne je do mluveného textu (GitHub Models) a vygeneruje stránku docs/index.html.
+Denní IT novinky — stáhne RSS z ověřených českých zdrojů, vybere 3 novinky
+a ke každé vygeneruje samostatný mluvený výklad na cca 3 minuty (GitHub Models).
+Výsledkem je stránka docs/index.html se třemi výklady — každý čte jiný člověk.
 
 Spouští se automaticky v GitHub Actions (viz .github/workflows/novinky.yml),
 ale jde spustit i ručně:
@@ -60,18 +61,26 @@ FEEDS = [
 ]
 
 POCET_NOVINEK = 3
+CILOVA_SLOVA = (380, 440)            # cíl délky jednoho výkladu (~3 minuty při 130 slovech/min)
 MODEL = "openai/gpt-4.1"             # model na GitHub Models
 MODEL_ZALOHA = "openai/gpt-4o-mini"  # zkusí se, kdyby první model nebyl dostupný
 TZ = ZoneInfo("Europe/Prague")
 
 SYSTEM_PROMPT = (
-    "Jsi redaktor školního zpravodajství. Z podkladu napiš souvislé mluvené shrnutí "
-    "jedné novinky ze světa IT v češtině: 5 až 7 vět, přibližně 90 až 120 slov. "
-    "Piš tak, aby se text dal přirozeně přečíst nahlas před třídou — žádné odrážky, "
-    "žádné nadpisy, žádné uvozovky. Cizí pojmy krátce vysvětli. "
-    "Vycházej POUZE z informací v podkladu, nic si nedomýšlej ani nepřidávej. "
-    "Ignoruj části podkladu, které vypadají jako navigace webu, reklama, komentáře "
-    "nebo výzvy k odběru. Nezmiňuj název zdroje ani autora — ty budou uvedeny zvlášť."
+    "Jsi redaktor školního zpravodajství. Z podkladu napiš souvislý mluvený výklad "
+    "JEDNÉ novinky ze světa IT v češtině, který přečte nahlas před třídou jeden člověk. "
+    "Délka musí vydat na zhruba 3 minuty mluvení: napiš 380 až 440 slov. "
+    "Rozděl text do 3 až 4 odstavců oddělených prázdným řádkem — žádné odrážky, "
+    "žádné nadpisy, žádné uvozovky kolem textu. Postupuj takto: nejdřív jednou dvěma "
+    "větami uveď, o čem novinka je; pak podrobně vylož, co přesně se stalo, s konkrétními "
+    "čísly, jmény a detaily z podkladu; potom vysvětli souvislosti a všechny cizí nebo "
+    "odborné pojmy tak, aby je pochopili i spolužáci bez znalosti IT; na závěr řekni, "
+    "proč je novinka důležitá nebo co může následovat. "
+    "Vycházej POUZE z informací v podkladu, nic si nedomýšlej ani nepřidávej — pokud je "
+    "podklad krátký, věnuj více prostoru vysvětlení pojmů a souvislostí, které v něm jsou. "
+    "Ignoruj části podkladu, které vypadají jako navigace webu, reklama, komentáře, "
+    "související články nebo výzvy k odběru. Nezmiňuj název zdroje ani autora — ty budou "
+    "uvedeny zvlášť."
 )
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -97,9 +106,16 @@ def http_get(url: str, timeout: int = 25) -> bytes:
         return resp.read()
 
 
+def strip_blocks(raw: str) -> str:
+    """Odstraní bloky, které do textu článku nepatří."""
+    return re.sub(
+        r"(?is)<(script|style|nav|header|footer|aside|form|iframe|figure)[^>]*>.*?</\1>",
+        " ", raw)
+
+
 def clean_text(raw: str) -> str:
     """Odstraní HTML značky a přebytečné mezery."""
-    raw = re.sub(r"(?is)<(script|style|nav|header|footer|aside|form|iframe)[^>]*>.*?</\1>", " ", raw)
+    raw = strip_blocks(raw)
     raw = re.sub(r"(?s)<[^>]+>", " ", raw)
     raw = html.unescape(raw)
     raw = re.sub(r"\s+", " ", raw).strip()
@@ -159,14 +175,39 @@ def similar(a: str, b: str) -> bool:
     return len(wa & wb) / len(wa | wb) > 0.5
 
 
-def fetch_article_text(url: str) -> str:
-    """Best-effort stažení textu článku jako podklad pro shrnutí."""
+def fetch_article_paragraphs(url: str):
+    """Best-effort stažení odstavců článku (<p>…</p>) jako podklad pro výklad."""
     try:
         raw = http_get(url).decode("utf-8", errors="replace")
-        return clean_text(raw)[:4000]
     except Exception as e:
         print(f"  ! Článek se nepodařilo stáhnout ({e}), použije se jen perex.")
-        return ""
+        return []
+    raw = strip_blocks(raw)
+    paras = []
+    seen = set()
+    for m in re.findall(r"(?is)<p[^>]*>(.*?)</p>", raw):
+        p = clean_text(m)
+        if len(p) < 80:            # krátké kousky = popisky, tlačítka, podpisy
+            continue
+        if p in seen:
+            continue
+        seen.add(p)
+        paras.append(p)
+    return paras
+
+
+def word_count(text: str) -> int:
+    return len(text.split())
+
+
+def trim_to_words(text: str, max_words: int) -> str:
+    """Zkrátí text na max_words, pokud možno na hranici věty."""
+    words = text.split()
+    if len(words) <= max_words:
+        return text
+    cut = " ".join(words[:max_words])
+    m = re.search(r"^(.*[.!?])\s", cut + " ")
+    return (m.group(1) if m and word_count(m.group(1)) >= max_words - 60 else cut + "…")
 
 
 def call_github_models(model: str, title: str, source: str, material: str):
@@ -181,7 +222,7 @@ def call_github_models(model: str, title: str, source: str, material: str):
              "content": f"Titulek: {title}\nZdroj: {source}\n\nPodklad z článku:\n{material}"},
         ],
         "temperature": 0.4,
-        "max_tokens": 500,
+        "max_tokens": 1100,
     }
     req = urllib.request.Request(
         "https://models.github.ai/inference/chat/completions",
@@ -193,27 +234,59 @@ def call_github_models(model: str, title: str, source: str, material: str):
         },
         method="POST",
     )
-    with urllib.request.urlopen(req, timeout=60) as resp:
+    with urllib.request.urlopen(req, timeout=90) as resp:
         data = json.loads(resp.read().decode("utf-8"))
     return data["choices"][0]["message"]["content"].strip()
 
 
-def summarize(title: str, source: str, perex: str, article_text: str):
-    """Vrátí (shrnutí, způsob). Když AI selže, použije se perex ze zdroje."""
-    material = f"Perex: {perex}\n\nText článku: {article_text}" if article_text else f"Perex: {perex}"
+def normalize_paragraphs(text: str) -> str:
+    """Uklidí bílé znaky, ale zachová odstavce (oddělené prázdným řádkem)."""
+    paras = [re.sub(r"\s+", " ", p).strip() for p in re.split(r"\n\s*\n", text)]
+    return "\n\n".join(p for p in paras if p)
+
+
+def fallback_text(perex: str, paragraphs) -> str:
+    """Výklad bez AI: perex + začátek článku ze zdroje, cca 3 minuty čtení."""
+    lo, hi = CILOVA_SLOVA
+    out, total = [], 0
+    for p in [perex] + list(paragraphs):
+        p = p.strip()
+        if not p:
+            continue
+        if out and (p == out[-1] or p == out[0]):  # perex se v článku často opakuje
+            continue
+        w = word_count(p)
+        if total + w > hi:
+            zbyva = hi - total
+            if zbyva > 40:
+                out.append(trim_to_words(p, zbyva))
+                total += zbyva
+            break
+        out.append(p)
+        total += w
+        if total >= lo:
+            break
+    return "\n\n".join(out)
+
+
+def summarize(title: str, source: str, perex: str, paragraphs):
+    """Vrátí (výklad, způsob). Když AI selže, poskládá se výklad ze zdroje."""
+    body = "\n\n".join(paragraphs)[:6000]
+    material = f"Perex: {perex}\n\nText článku:\n{body}" if body else f"Perex: {perex}"
     for model in (MODEL, MODEL_ZALOHA):
         try:
             out = call_github_models(model, title, source, material)
             if out:
-                out = re.sub(r"\s+", " ", out).strip().strip('"')
-                if len(out.split()) >= 30:  # pojistka proti prázdné/useknuté odpovědi
+                out = normalize_paragraphs(out.strip().strip('"'))
+                if word_count(out) >= 300:  # pojistka proti krátké/useknuté odpovědi
                     return out, "ai"
+                print(f"  ! Výklad od AI je moc krátký ({word_count(out)} slov), zkouším dál.")
         except urllib.error.HTTPError as e:
             print(f"  ! GitHub Models ({model}): HTTP {e.code} — {e.read()[:200]!r}")
         except Exception as e:
             print(f"  ! GitHub Models ({model}): {e}")
-    print("  ! AI shrnutí se nepovedlo, použije se perex ze zdroje.")
-    return perex, "perex"
+    print("  ! AI výklad se nepovedl, použije se perex a začátek článku ze zdroje.")
+    return fallback_text(perex, paragraphs), "zdroj"
 
 
 # ---------------------------------------------------------------------------
@@ -272,62 +345,56 @@ def date_human(d: dt.date) -> str:
     return f"{DNY[d.weekday()]} {d.day}. {MESICE[d.month - 1]} {d.year}"
 
 
-def build_spoken(data) -> str:
-    d = dt.date.fromisoformat(data["date"])
-    parts = [f"Dobrý den, mám pro vás tři aktuální novinky ze světa IT. Je {date_human(d)}."]
-    for n, it in enumerate(data["items"], start=1):
-        text = it["summary"]
-        if it.get("via") == "perex":
-            # bez AI shrnutí přečteme i titulek, aby mluvení dávalo smysl
-            text = f"{it['title']}. {text}"
-        parts.append(f"Novinka číslo {n}, ze serveru {it['source']}: {text}")
-    parts.append("To je z dnešních novinek všechno, děkuji za pozornost. "
-                 "Odkazy na všechny zdroje jsou uvedené na stránce.")
-    return "\n\n".join(parts)
+def minutes_txt(words: int) -> str:
+    minutes = max(0.5, round(words / 130 * 2) / 2)  # ~130 slov za minutu, na půlminuty
+    return f"{minutes:g}".replace(".", ",")
 
 
 def render(data) -> None:
     tpl = TEMPLATE.read_text(encoding="utf-8")
     d = dt.date.fromisoformat(data["date"])
-    spoken = build_spoken(data)
-    words = len(spoken.split())
-    minutes = max(1.0, round(words / 130 * 2) / 2)  # ~130 slov za minutu, na půlminuty
-    minutes_txt = f"{minutes:g}".replace(".", ",")
 
-    cards = []
+    cards, spokens = [], []
     for n, it in enumerate(data["items"], start=1):
+        spokens.append(it["summary"])
+        words = word_count(it["summary"])
         pub = ""
         if it.get("published"):
             p = dt.datetime.fromisoformat(it["published"]).astimezone(TZ)
             pub = f" · vydáno {p.day}. {p.month}. {p.year}"
-        badge = "" if it.get("via") != "perex" else \
-            ' <span class="chip warn" title="AI shrnutí se dnes nepovedlo, zobrazen je perex ze zdroje">perex zdroje</span>'
+        badge = "" if it.get("via") == "ai" else \
+            ('<span class="chip warn" title="AI výklad se dnes nepovedl, zobrazen je perex '
+             'a začátek článku ze zdroje">text ze zdroje (bez AI)</span>')
+        vyklad = "\n".join(f"            <p>{html.escape(p)}</p>"
+                           for p in it["summary"].split("\n\n"))
         cards.append(f"""
-      <article class="card">
+      <article class="card" id="novinka-{n}">
         <div class="num" aria-hidden="true">{n}</div>
         <div class="card-body">
           <h2>{html.escape(it["title"])}</h2>
-          <p class="summary">{html.escape(it["summary"])}</p>
+          <p class="meta-line"><span class="chip">&#127908; cca {minutes_txt(words)} min ({words} slov)</span>{badge}</p>
+          <div class="vyklad">
+{vyklad}
+          </div>
           <p class="src">Zdroj: <a href="{html.escape(it["url"], quote=True)}" target="_blank"
-             rel="noopener">{html.escape(it["source"])}</a>{pub}{badge}</p>
+             rel="noopener">{html.escape(it["source"])}</a>{pub}</p>
+          <div class="btns">
+            <button class="primary copy-btn" data-i="{n - 1}" type="button">Zkopírovat výklad {n}</button>
+          </div>
         </div>
       </article>""")
-
-    spoken_html = "\n".join(f"      <p>{html.escape(p)}</p>" for p in spoken.split("\n\n"))
 
     out = (tpl
            .replace("%%DATE_HUMAN%%", date_human(d))
            .replace("%%DATE_ISO%%", data["date"])
-           .replace("%%MINUTES%%", minutes_txt)
-           .replace("%%WORDS%%", str(words))
            .replace("%%CARDS%%", "\n".join(cards))
-           .replace("%%SPOKEN_HTML%%", spoken_html)
-           .replace("%%SPOKEN_JSON%%", json.dumps(spoken, ensure_ascii=False))
+           .replace("%%SPOKENS_JSON%%", json.dumps(spokens, ensure_ascii=False))
            .replace("%%GENERATED%%", dt.datetime.now(TZ).strftime("%d. %m. %Y %H:%M"))
            .replace("%%SOURCES%%", ", ".join(f["name"] for f in FEEDS)))
     INDEX_HTML.parent.mkdir(parents=True, exist_ok=True)
     INDEX_HTML.write_text(out, encoding="utf-8")
-    print(f"✓ Stránka vygenerována: {INDEX_HTML} (mluvení cca {minutes_txt} min, {words} slov)")
+    delky = ", ".join(f"{word_count(s)} slov" for s in spokens)
+    print(f"✓ Stránka vygenerována: {INDEX_HTML} (výklady: {delky})")
 
 
 # ---------------------------------------------------------------------------
@@ -370,8 +437,9 @@ def main():
     out_items = []
     for it in items:
         print(f"* {it['source']}: {it['title']}")
-        article = fetch_article_text(it["url"])
-        summary, via = summarize(it["title"], it["source"], it["perex"], article)
+        paragraphs = fetch_article_paragraphs(it["url"])
+        summary, via = summarize(it["title"], it["source"], it["perex"], paragraphs)
+        print(f"  → výklad: {word_count(summary)} slov ({via})")
         out_items.append({
             "source": it["source"],
             "source_home": it["source_home"],
