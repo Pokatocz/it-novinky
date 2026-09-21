@@ -1,9 +1,10 @@
 # 📰 IT novinky dne
 
 Stránka, která **každý den v 5:00 ráno** sama stáhne aktuální články z ověřených českých
-IT zdrojů (Root.cz, Lupa.cz, CzechCrunch), vybere **3 novinky**, nechá je umělou inteligencí
-shrnout do **mluveného textu na 2–3 minuty** a zveřejní je na GitHub Pages.
-U každé novinky je vždy **odkaz na původní článek** — zdroj pro učitele.
+IT zdrojů (Root.cz, Lupa.cz, CzechCrunch), vybere **3 novinky** a ke každé nechá umělou
+inteligencí napsat **samostatný mluvený výklad na cca 3 minuty** — každý výklad čte jiný
+člověk. Vše se zveřejní na GitHub Pages a u každé novinky je vždy **odkaz na původní
+článek** — zdroj pro učitele.
 
 ## Jak to funguje
 
@@ -12,15 +13,15 @@ GitHub Actions (každý den v 5:00 pražského času)
    └─ scripts/update_news.py
         1. stáhne RSS z Root.cz, Lupa.cz a CzechCrunch
         2. vybere 3 nejnovější IT novinky (z každého zdroje jednu)
-        3. stáhne text článků a nechá GitHub Models (AI) napsat mluvené shrnutí
+        3. stáhne text článků a nechá GitHub Models (AI) napsat 3 výklady po ~3 minutách
         4. uloží docs/data.json a vygeneruje stránku docs/index.html
         5. workflow změny commitne → GitHub Pages stránku obnoví
 ```
 
-- AI shrnutí běží přes **GitHub Models** — zdarma, bez API klíče, stačí vestavěný
+- AI výklady běží přes **GitHub Models** — zdarma, bez API klíče, stačí vestavěný
   `GITHUB_TOKEN` (workflow má `permissions: models: read`).
-- Když AI zrovna nejede, stránka se vygeneruje aspoň s perexem ze zdroje
-  (u novinky se pak ukáže štítek „perex zdroje“).
+- Když AI zrovna nejede, výklad se poskládá z perexu a začátku článku ze zdroje
+  (u novinky se pak ukáže štítek „text ze zdroje (bez AI)“).
 - Vše je čistý Python bez závislostí + jeden HTML soubor. Nic se neinstaluje.
 
 ## Nasazení na GitHub (jednou, cca 5 minut)
