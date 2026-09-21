@@ -187,6 +187,8 @@ def fetch_article_paragraphs(url: str):
     seen = set()
     for m in re.findall(r"(?is)<p[^>]*>(.*?)</p>", raw):
         p = clean_text(m)
+        # vložené widgety na začátku odstavce (Lupa/Root: "Přidat mezi oblíbené…")
+        p = re.sub(r"^Přidat mezi oblíbené zdroje na Googlu\s*", "", p)
         if len(p) < 80:            # krátké kousky = popisky, tlačítka, podpisy
             continue
         # popisky fotek a lišty sdílení, které se do mluveného textu nehodí
@@ -249,6 +251,14 @@ def normalize_paragraphs(text: str) -> str:
     return "\n\n".join(p for p in paras if p)
 
 
+def prekryv(a: str, b: str) -> float:
+    """Podíl společných slov (vůči kratšímu textu) — na odhalení opakování."""
+    wa, wb = set(a.lower().split()), set(b.lower().split())
+    if not wa or not wb:
+        return 0.0
+    return len(wa & wb) / min(len(wa), len(wb))
+
+
 def fallback_text(perex: str, paragraphs) -> str:
     """Výklad bez AI: perex + začátek článku ze zdroje, cca 3 minuty čtení."""
     lo, hi = CILOVA_SLOVA
@@ -257,7 +267,8 @@ def fallback_text(perex: str, paragraphs) -> str:
         p = p.strip()
         if not p:
             continue
-        if out and (p == out[-1] or p == out[0]):  # perex se v článku často opakuje
+        # perex a úvod článku se často opakují (i s drobnými změnami) — přeskočit
+        if any(prekryv(p, q) > 0.7 for q in out):
             continue
         w = word_count(p)
         if total + w > hi:
