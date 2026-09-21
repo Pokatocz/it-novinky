@@ -1,0 +1,33 @@
+{
+  "date": "2026-09-21",
+  "generated_at": "2026-09-21T18:55:10.679203+02:00",
+  "items": [
+    {
+      "source": "Lupa.cz",
+      "source_home": "https://www.lupa.cz/",
+      "title": "Praha dá do nové generace aplikace Lítačka 25 milionů",
+      "url": "https://www.lupa.cz/aktuality/praha-da-do-nove-generace-aplikace-litacka-25-milionu/",
+      "published": "2026-09-21T15:42:44+00:00",
+      "summary": "Pražští radní schválili částku 25 milionů Kč na další vývoj nové generace aplikace PID Lítačka. Dalších 6 milionů má jít z ROPID a IDSK, organizátorů veřejné dopravy v Praze a Středočeském kraji, kteří společně zajišťují fungování a rozvoj systému Pražské integrované dopravy. Vývoj nové PID Lítačka 2.0 zajišťuje městská společnost OICT a má být technologickým základem pro další digitální služby v dopravě v Praze a Středočeském kraji.",
+      "via": "perex"
+    },
+    {
+      "source": "CzechCrunch",
+      "source_home": "https://cc.cz/",
+      "title": "Po stamilionovém exitu dál rostou. Na českém řešení jede 100 tisíc aplikací, propojilo se s ChatGPT a Claudem",
+      "url": "https://cc.cz/po-stamilionovem-exitu-dal-rostou-na-ceskem-reseni-jede-100-tisic-aplikaci-propojilo-se-s-chatgpt-a-claudem/",
+      "published": "2026-09-21T13:22:40+00:00",
+      "summary": "Uživatelé českého nástroje Macaly nově mohou přímo v chatech vytvářet weby nebo aplikace a publikovat je i s databází a hostingem na vlastní doméně.",
+      "via": "perex"
+    },
+    {
+      "source": "Root.cz",
+      "source_home": "https://www.root.cz/",
+      "title": "Postřehy z bezpečnosti: umělá inteligence chce nahradit finanční poradce",
+      "url": "https://www.root.cz/clanky/postrehy-z-bezpecnosti-umela-inteligence-chce-nahradit-financni-poradce/",
+      "published": "2026-09-20T22:00:10+00:00",
+      "summary": "V dnešním díle se podíváme na finance pod taktovkou umělé inteligence, jak Revolut uvěřil podvrženému vládnímu emailu, podvody severokorejských uchazečů o práci i na závažnou chybu v modemech telefonů Google Pixel.",
+      "via": "perex"
+    }
+  ]
+}
