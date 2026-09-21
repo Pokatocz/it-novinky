@@ -189,6 +189,10 @@ def fetch_article_paragraphs(url: str):
         p = clean_text(m)
         if len(p) < 80:            # krátké kousky = popisky, tlačítka, podpisy
             continue
+        # popisky fotek a lišty sdílení, které se do mluveného textu nehodí
+        if re.match(r"(?i)^\s*(foto|zdroj obrázku|ilustrační foto)\s*[::]", p) \
+                or "Sdílet na Facebooku" in p:
+            continue
         if p in seen:
             continue
         seen.add(p)
