@@ -1,0 +1,47 @@
+name: Denní IT novinky
+
+on:
+  schedule:
+    # Cron běží v UTC. Praha je UTC+2 (léto) / UTC+1 (zima), proto tři pokusy —
+    # skript sám pozná, který z nich odpovídá 5. hodině pražského času,
+    # ostatní hned skončí. Třetí běh slouží jako záloha, kdyby první selhal.
+    - cron: "0 3,4,5 * * *"
+  workflow_dispatch: {}
+  push:
+    branches: [main]
+    paths:
+      - "scripts/**"
+      - ".github/workflows/novinky.yml"
+
+permissions:
+  contents: write   # workflow smí zapsat nové novinky do repozitáře
+  models: read      # přístup ke GitHub Models (AI shrnutí) přes GITHUB_TOKEN
+
+concurrency:
+  group: novinky
+  cancel-in-progress: false
+
+jobs:
+  aktualizace:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Stáhnout repozitář
+        uses: actions/checkout@v4
+
+      - name: Vygenerovat novinky
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SCHEDULED: ${{ github.event_name == 'schedule' && '1' || '' }}
+        run: python3 scripts/update_news.py
+
+      - name: Uložit změny do repozitáře
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          if [ -n "$(git status --porcelain docs)" ]; then
+            git add docs
+            git commit -m "Novinky $(date -u +%F) (automatická aktualizace)"
+            git push
+          else
+            echo "Žádné změny k uložení."
+          fi
