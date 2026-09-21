@@ -276,7 +276,11 @@ def build_spoken(data) -> str:
     d = dt.date.fromisoformat(data["date"])
     parts = [f"Dobrý den, mám pro vás tři aktuální novinky ze světa IT. Je {date_human(d)}."]
     for n, it in enumerate(data["items"], start=1):
-        parts.append(f"Novinka číslo {n}, ze serveru {it['source']}: {it['summary']}")
+        text = it["summary"]
+        if it.get("via") == "perex":
+            # bez AI shrnutí přečteme i titulek, aby mluvení dávalo smysl
+            text = f"{it['title']}. {text}"
+        parts.append(f"Novinka číslo {n}, ze serveru {it['source']}: {text}")
     parts.append("To je z dnešních novinek všechno, děkuji za pozornost. "
                  "Odkazy na všechny zdroje jsou uvedené na stránce.")
     return "\n\n".join(parts)
