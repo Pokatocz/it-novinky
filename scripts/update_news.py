@@ -68,6 +68,8 @@ CILOVA_SLOVA = (380, 440)            # cíl délky jednoho výkladu (~3 minuty p
 GEMINI_MODELY = ("gemini-3.6-flash", "gemini-flash-latest")  # Google Gemini (klíč GEMINI_API_KEY)
 # Kdyby Google modely přejmenoval, skript se sám zeptá API na aktuální seznam (viz gemini_dostupne_modely).
 GH_MODELY = ("openai/gpt-4.1", "openai/gpt-4o-mini")      # záloha: GitHub Models (končí)
+KOL_POKUSU = 5           # kolikrát projet celý seznam modelů, než to vzdáme
+PAUZA_MEZI_KOLY = 30     # sekund mezi koly
 TZ = ZoneInfo("Europe/Prague")
 
 SYSTEM_PROMPT = (
@@ -282,7 +284,7 @@ def gemini_dostupne_modely():
     jmena.sort(key=poradi)
     if jmena:
         print(f"  i Dostupné modely podle API: {', '.join(jmena[:5])}")
-    return jmena[:3]
+    return jmena[:6]
 
 
 def call_gemini(model: str, material: str):
@@ -308,24 +310,13 @@ def call_gemini(model: str, material: str):
         with urllib.request.urlopen(req, timeout=120) as resp:
             return json.loads(resp.read().decode("utf-8"))
 
-    # Volné modely bývají chvílemi přetížené (503) — zkusíme to několikrát po sobě.
-    for pokus in range(3):
-        try:
-            try:
-                data = posli(True)
-            except urllib.error.HTTPError as e:
-                if e.code != 400:
-                    raise
-                # model nemusí umět thinkingConfig — zkus to bez něj
-                data = posli(False)
-            break
-        except urllib.error.HTTPError as e:
-            if e.code in (429, 500, 502, 503) and pokus < 2:
-                cekej = 10 * (pokus + 1)
-                print(f"    {model}: HTTP {e.code} (přetížené) — zkouším znovu za {cekej} s")
-                time.sleep(cekej)
-                continue
+    try:
+        data = posli(True)
+    except urllib.error.HTTPError as e:
+        if e.code != 400:
             raise
+        # model nemusí umět thinkingConfig — zkus to bez něj
+        data = posli(False)
 
     kandidati = data.get("candidates") or []
     if not kandidati:
@@ -366,20 +357,27 @@ def summarize(title: str, source: str, perex: str, paragraphs):
             modely.append(m)
     pokusy = ([("Gemini", m, call_gemini) for m in modely]
               + [("GitHub Models", m, call_github_models) for m in GH_MODELY])
-    for sluzba, model, fn in pokusy:
-        try:
-            out = fn(model, material)
-            if out is None:
-                continue  # chybí klíč/token pro tuhle službu
-            out = normalize_paragraphs(out.strip().strip('"'))
-            if word_count(out) >= 300:  # pojistka proti krátké/useknuté odpovědi
-                print(f"  ✓ výklad napsal {sluzba} ({model})")
-                return out
-            print(f"  ! {sluzba} ({model}): výklad moc krátký ({word_count(out)} slov), zkouším dál.")
-        except urllib.error.HTTPError as e:
-            print(f"  ! {sluzba} ({model}): HTTP {e.code} — {e.read()[:200]!r}")
-        except Exception as e:
-            print(f"  ! {sluzba} ({model}): {e}")
+    # Volné modely bývají chvílemi přetížené (503). Radši projedeme celý seznam rychle
+    # a případně to zkusíme znovu za chvíli, než abychom dlouho čekali na jeden model.
+    for kolo in range(KOL_POKUSU):
+        for sluzba, model, fn in pokusy:
+            try:
+                out = fn(model, material)
+                if out is None:
+                    continue  # chybí klíč/token pro tuhle službu
+                out = normalize_paragraphs(out.strip().strip('"'))
+                if word_count(out) >= 300:  # pojistka proti krátké/useknuté odpovědi
+                    print(f"  ✓ výklad napsal {sluzba} ({model})")
+                    return out
+                print(f"  ! {sluzba} ({model}): výklad moc krátký ({word_count(out)} slov), zkouším dál.")
+            except urllib.error.HTTPError as e:
+                print(f"  ! {sluzba} ({model}): HTTP {e.code} — {e.read()[:120]!r}")
+            except Exception as e:
+                print(f"  ! {sluzba} ({model}): {e}")
+        if kolo < KOL_POKUSU - 1:
+            print(f"  … všechny modely teď odmítly, zkusím to za {PAUZA_MEZI_KOLY} s znovu "
+                  f"(kolo {kolo + 2} z {KOL_POKUSU})")
+            time.sleep(PAUZA_MEZI_KOLY)
     return None
 
 
