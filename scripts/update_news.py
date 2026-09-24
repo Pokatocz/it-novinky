@@ -68,8 +68,8 @@ CILOVA_SLOVA = (380, 440)            # cíl délky jednoho výkladu (~3 minuty p
 GEMINI_MODELY = ("gemini-3.6-flash", "gemini-flash-latest")  # Google Gemini (klíč GEMINI_API_KEY)
 # Kdyby Google modely přejmenoval, skript se sám zeptá API na aktuální seznam (viz gemini_dostupne_modely).
 GH_MODELY = ("openai/gpt-4.1", "openai/gpt-4o-mini")      # záloha: GitHub Models (končí)
-KOL_POKUSU = 5           # kolikrát projet celý seznam modelů, než to vzdáme
-PAUZA_MEZI_KOLY = 30     # sekund mezi koly
+KOL_POKUSU = 6           # kolikrát projet seznam modelů, než to vzdáme
+PAUZA_MEZI_KOLY = 45     # sekund mezi koly
 TZ = ZoneInfo("Europe/Prague")
 
 SYSTEM_PROMPT = (
@@ -284,7 +284,7 @@ def gemini_dostupne_modely():
     jmena.sort(key=poradi)
     if jmena:
         print(f"  i Dostupné modely podle API: {', '.join(jmena[:5])}")
-    return jmena[:6]
+    return jmena[:4]
 
 
 def call_gemini(model: str, material: str):
@@ -336,6 +336,8 @@ def normalize_paragraphs(text: str) -> str:
 
 
 _GEMINI_EXTRA = None
+_MODEL_FUNGUJE = None      # model, který v tomhle běhu už jednou uspěl
+_MRTVE_MODELY = set()      # modely, které hlásí 404 — nemá cenu je zkoušet znovu
 
 
 def gemini_extra_modely():
@@ -357,10 +359,16 @@ def summarize(title: str, source: str, perex: str, paragraphs):
             modely.append(m)
     pokusy = ([("Gemini", m, call_gemini) for m in modely]
               + [("GitHub Models", m, call_github_models) for m in GH_MODELY])
-    # Volné modely bývají chvílemi přetížené (503). Radši projedeme celý seznam rychle
-    # a případně to zkusíme znovu za chvíli, než abychom dlouho čekali na jeden model.
+    # Volné modely bývají chvílemi přetížené (503) nebo dojde kvóta (429).
+    # Model, který už jednou uspěl, zkoušíme jako první; mrtvé (404) přeskakujeme.
+    global _MODEL_FUNGUJE
     for kolo in range(KOL_POKUSU):
-        for sluzba, model, fn in pokusy:
+        poradi = pokusy
+        if _MODEL_FUNGUJE in pokusy:
+            poradi = [_MODEL_FUNGUJE] + [x for x in pokusy if x != _MODEL_FUNGUJE]
+        for sluzba, model, fn in poradi:
+            if model in _MRTVE_MODELY:
+                continue
             try:
                 out = fn(model, material)
                 if out is None:
@@ -368,14 +376,19 @@ def summarize(title: str, source: str, perex: str, paragraphs):
                 out = normalize_paragraphs(out.strip().strip('"'))
                 if word_count(out) >= 300:  # pojistka proti krátké/useknuté odpovědi
                     print(f"  ✓ výklad napsal {sluzba} ({model})")
+                    _MODEL_FUNGUJE = (sluzba, model, fn)
                     return out
                 print(f"  ! {sluzba} ({model}): výklad moc krátký ({word_count(out)} slov), zkouším dál.")
             except urllib.error.HTTPError as e:
-                print(f"  ! {sluzba} ({model}): HTTP {e.code} — {e.read()[:120]!r}")
+                if e.code == 404:
+                    _MRTVE_MODELY.add(model)
+                    print(f"  ! {sluzba} ({model}): model neexistuje, vyřazuji ho.")
+                else:
+                    print(f"  ! {sluzba} ({model}): HTTP {e.code}")
             except Exception as e:
                 print(f"  ! {sluzba} ({model}): {e}")
         if kolo < KOL_POKUSU - 1:
-            print(f"  … všechny modely teď odmítly, zkusím to za {PAUZA_MEZI_KOLY} s znovu "
+            print(f"  … modely teď nestíhají, zkusím to za {PAUZA_MEZI_KOLY} s znovu "
                   f"(kolo {kolo + 2} z {KOL_POKUSU})")
             time.sleep(PAUZA_MEZI_KOLY)
     return None
