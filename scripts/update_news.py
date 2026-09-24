@@ -64,7 +64,8 @@ FEEDS = [
 
 POCET_NOVINEK = 3
 CILOVA_SLOVA = (380, 440)            # cíl délky jednoho výkladu (~3 minuty při 130 slovech/min)
-GEMINI_MODELY = ("gemini-2.5-flash", "gemini-2.0-flash")  # Google Gemini (klíč GEMINI_API_KEY)
+GEMINI_MODELY = ("gemini-3.6-flash", "gemini-flash-latest")  # Google Gemini (klíč GEMINI_API_KEY)
+# Kdyby Google modely přejmenoval, skript se sám zeptá API na aktuální seznam (viz gemini_dostupne_modely).
 GH_MODELY = ("openai/gpt-4.1", "openai/gpt-4o-mini")      # záloha: GitHub Models (končí)
 TZ = ZoneInfo("Europe/Prague")
 
@@ -246,28 +247,83 @@ def call_github_models(model: str, material: str):
     return data["choices"][0]["message"]["content"].strip()
 
 
+def gemini_dostupne_modely():
+    """Zeptá se Gemini API, které modely umí generateContent — pojistka proti přejmenování."""
+    key = os.environ.get("GEMINI_API_KEY")
+    if not key:
+        return []
+    req = urllib.request.Request(
+        "https://generativelanguage.googleapis.com/v1beta/models?pageSize=200",
+        headers={"x-goog-api-key": key},
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=60) as resp:
+            data = json.loads(resp.read().decode("utf-8"))
+    except Exception as e:
+        print(f"  ! Nepodařilo se načíst seznam modelů: {e}")
+        return []
+    jmena = []
+    for m in data.get("models", []):
+        if "generateContent" not in (m.get("supportedGenerationMethods") or []):
+            continue
+        jm = (m.get("name") or "").split("/")[-1]
+        if not jm or "flash" not in jm:
+            continue
+        if any(z in jm for z in ("embedding", "vision", "tts", "image", "live", "audio")):
+            continue
+        jmena.append(jm)
+
+    def poradi(jm):
+        # nejdřív běžný flash, pak lite; preview/exp až nakonec; novější verze dřív
+        cislo = re.search(r"(\d+(?:\.\d+)?)", jm)
+        return (("preview" in jm or "exp" in jm), ("lite" in jm), -float(cislo.group(1)) if cislo else 0)
+
+    jmena.sort(key=poradi)
+    if jmena:
+        print(f"  i Dostupné modely podle API: {', '.join(jmena[:5])}")
+    return jmena[:3]
+
+
 def call_gemini(model: str, material: str):
     key = os.environ.get("GEMINI_API_KEY")
     if not key:
         return None
-    payload = {
-        "system_instruction": {"parts": [{"text": SYSTEM_PROMPT}]},
-        "contents": [{"role": "user", "parts": [{"text": material}]}],
-        "generationConfig": {"temperature": 0.4, "maxOutputTokens": 2000},
-    }
-    if model.startswith("gemini-2.5"):
-        # vypnout "přemýšlení", ať se nespotřebuje limit výstupu
-        payload["generationConfig"]["thinkingConfig"] = {"thinkingBudget": 0}
-    req = urllib.request.Request(
-        f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent",
-        data=json.dumps(payload).encode("utf-8"),
-        headers={"x-goog-api-key": key, "Content-Type": "application/json"},
-        method="POST",
-    )
-    with urllib.request.urlopen(req, timeout=90) as resp:
-        data = json.loads(resp.read().decode("utf-8"))
-    parts = data["candidates"][0]["content"]["parts"]
-    return "".join(p.get("text", "") for p in parts).strip()
+
+    def posli(s_thinking: bool):
+        payload = {
+            "system_instruction": {"parts": [{"text": SYSTEM_PROMPT}]},
+            "contents": [{"role": "user", "parts": [{"text": material}]}],
+            "generationConfig": {"temperature": 0.4, "maxOutputTokens": 4000},
+        }
+        if s_thinking:
+            # vypnout "přemýšlení", ať se nespotřebuje limit výstupu
+            payload["generationConfig"]["thinkingConfig"] = {"thinkingBudget": 0}
+        req = urllib.request.Request(
+            f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent",
+            data=json.dumps(payload).encode("utf-8"),
+            headers={"x-goog-api-key": key, "Content-Type": "application/json"},
+            method="POST",
+        )
+        with urllib.request.urlopen(req, timeout=120) as resp:
+            return json.loads(resp.read().decode("utf-8"))
+
+    try:
+        data = posli(True)
+    except urllib.error.HTTPError as e:
+        if e.code != 400:
+            raise
+        # model nemusí umět thinkingConfig — zkus to bez něj
+        data = posli(False)
+
+    kandidati = data.get("candidates") or []
+    if not kandidati:
+        raise RuntimeError(f"odpověď bez kandidátů ({str(data)[:200]})")
+    obsah = kandidati[0].get("content") or {}
+    parts = obsah.get("parts") or []
+    text = "".join(p.get("text", "") for p in parts).strip()
+    if not text:
+        raise RuntimeError(f"prázdná odpověď (finishReason={kandidati[0].get('finishReason')})")
+    return text
 
 
 def normalize_paragraphs(text: str) -> str:
@@ -276,12 +332,27 @@ def normalize_paragraphs(text: str) -> str:
     return "\n\n".join(p for p in paras if p)
 
 
+_GEMINI_EXTRA = None
+
+
+def gemini_extra_modely():
+    """Seznam modelů z API — zjistí se nejvýš jednou za běh."""
+    global _GEMINI_EXTRA
+    if _GEMINI_EXTRA is None:
+        _GEMINI_EXTRA = gemini_dostupne_modely()
+    return _GEMINI_EXTRA
+
+
 def summarize(title: str, source: str, perex: str, paragraphs):
     """Vrátí AI výklad, nebo None, když žádná AI není dostupná."""
     body = "\n\n".join(paragraphs)[:6000]
     material = (f"Titulek: {title}\nZdroj: {source}\n\nPodklad z článku:\nPerex: {perex}"
                 + (f"\n\nText článku:\n{body}" if body else ""))
-    pokusy = ([("Gemini", m, call_gemini) for m in GEMINI_MODELY]
+    modely = list(GEMINI_MODELY)
+    for m in gemini_extra_modely():
+        if m not in modely:
+            modely.append(m)
+    pokusy = ([("Gemini", m, call_gemini) for m in modely]
               + [("GitHub Models", m, call_github_models) for m in GH_MODELY])
     for sluzba, model, fn in pokusy:
         try:
