@@ -30,6 +30,7 @@ jobs:
 
       - name: Vygenerovat novinky
         env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           SCHEDULED: ${{ github.event_name == 'schedule' && '1' || '' }}
         run: python3 scripts/update_news.py
