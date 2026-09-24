@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
 """
 Denní IT novinky — stáhne RSS z ověřených českých zdrojů, vybere 3 novinky
-a ke každé vygeneruje samostatný mluvený výklad na cca 3 minuty (GitHub Models).
+a ke každé nechá AI napsat samostatný mluvený výklad na cca 3 minuty.
+Výklady píše VŽDY AI (Google Gemini, záložně GitHub Models) — když žádná AI
+není dostupná, běh skončí chybou a na stránce zůstane poslední úspěšný den.
 Výsledkem je stránka docs/index.html se třemi výklady — každý čte jiný člověk.
 
 Spouští se automaticky v GitHub Actions (viz .github/workflows/novinky.yml),
@@ -62,8 +64,8 @@ FEEDS = [
 
 POCET_NOVINEK = 3
 CILOVA_SLOVA = (380, 440)            # cíl délky jednoho výkladu (~3 minuty při 130 slovech/min)
-MODEL = "openai/gpt-4.1"             # model na GitHub Models
-MODEL_ZALOHA = "openai/gpt-4o-mini"  # zkusí se, kdyby první model nebyl dostupný
+GEMINI_MODELY = ("gemini-2.5-flash", "gemini-2.0-flash")  # Google Gemini (klíč GEMINI_API_KEY)
+GH_MODELY = ("openai/gpt-4.1", "openai/gpt-4o-mini")      # záloha: GitHub Models (končí)
 TZ = ZoneInfo("Europe/Prague")
 
 SYSTEM_PROMPT = (
@@ -216,7 +218,7 @@ def trim_to_words(text: str, max_words: int) -> str:
     return (m.group(1) if m and word_count(m.group(1)) >= max_words - 60 else cut + "…")
 
 
-def call_github_models(model: str, title: str, source: str, material: str):
+def call_github_models(model: str, material: str):
     token = os.environ.get("GITHUB_TOKEN") or os.environ.get("MODELS_TOKEN")
     if not token:
         return None
@@ -224,8 +226,7 @@ def call_github_models(model: str, title: str, source: str, material: str):
         "model": model,
         "messages": [
             {"role": "system", "content": SYSTEM_PROMPT},
-            {"role": "user",
-             "content": f"Titulek: {title}\nZdroj: {source}\n\nPodklad z článku:\n{material}"},
+            {"role": "user", "content": material},
         ],
         "temperature": 0.4,
         "max_tokens": 1100,
@@ -245,63 +246,58 @@ def call_github_models(model: str, title: str, source: str, material: str):
     return data["choices"][0]["message"]["content"].strip()
 
 
+def call_gemini(model: str, material: str):
+    key = os.environ.get("GEMINI_API_KEY")
+    if not key:
+        return None
+    payload = {
+        "system_instruction": {"parts": [{"text": SYSTEM_PROMPT}]},
+        "contents": [{"role": "user", "parts": [{"text": material}]}],
+        "generationConfig": {"temperature": 0.4, "maxOutputTokens": 2000},
+    }
+    if model.startswith("gemini-2.5"):
+        # vypnout "přemýšlení", ať se nespotřebuje limit výstupu
+        payload["generationConfig"]["thinkingConfig"] = {"thinkingBudget": 0}
+    req = urllib.request.Request(
+        f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent",
+        data=json.dumps(payload).encode("utf-8"),
+        headers={"x-goog-api-key": key, "Content-Type": "application/json"},
+        method="POST",
+    )
+    with urllib.request.urlopen(req, timeout=90) as resp:
+        data = json.loads(resp.read().decode("utf-8"))
+    parts = data["candidates"][0]["content"]["parts"]
+    return "".join(p.get("text", "") for p in parts).strip()
+
+
 def normalize_paragraphs(text: str) -> str:
     """Uklidí bílé znaky, ale zachová odstavce (oddělené prázdným řádkem)."""
     paras = [re.sub(r"\s+", " ", p).strip() for p in re.split(r"\n\s*\n", text)]
     return "\n\n".join(p for p in paras if p)
 
 
-def prekryv(a: str, b: str) -> float:
-    """Podíl společných slov (vůči kratšímu textu) — na odhalení opakování."""
-    wa, wb = set(a.lower().split()), set(b.lower().split())
-    if not wa or not wb:
-        return 0.0
-    return len(wa & wb) / min(len(wa), len(wb))
-
-
-def fallback_text(perex: str, paragraphs) -> str:
-    """Výklad bez AI: perex + začátek článku ze zdroje, cca 3 minuty čtení."""
-    lo, hi = CILOVA_SLOVA
-    out, total = [], 0
-    for p in [perex] + list(paragraphs):
-        p = p.strip()
-        if not p:
-            continue
-        # perex a úvod článku se často opakují (i s drobnými změnami) — přeskočit
-        if any(prekryv(p, q) > 0.7 for q in out):
-            continue
-        w = word_count(p)
-        if total + w > hi:
-            zbyva = hi - total
-            if zbyva > 40:
-                out.append(trim_to_words(p, zbyva))
-                total += zbyva
-            break
-        out.append(p)
-        total += w
-        if total >= lo:
-            break
-    return "\n\n".join(out)
-
-
 def summarize(title: str, source: str, perex: str, paragraphs):
-    """Vrátí (výklad, způsob). Když AI selže, poskládá se výklad ze zdroje."""
+    """Vrátí AI výklad, nebo None, když žádná AI není dostupná."""
     body = "\n\n".join(paragraphs)[:6000]
-    material = f"Perex: {perex}\n\nText článku:\n{body}" if body else f"Perex: {perex}"
-    for model in (MODEL, MODEL_ZALOHA):
+    material = (f"Titulek: {title}\nZdroj: {source}\n\nPodklad z článku:\nPerex: {perex}"
+                + (f"\n\nText článku:\n{body}" if body else ""))
+    pokusy = ([("Gemini", m, call_gemini) for m in GEMINI_MODELY]
+              + [("GitHub Models", m, call_github_models) for m in GH_MODELY])
+    for sluzba, model, fn in pokusy:
         try:
-            out = call_github_models(model, title, source, material)
-            if out:
-                out = normalize_paragraphs(out.strip().strip('"'))
-                if word_count(out) >= 300:  # pojistka proti krátké/useknuté odpovědi
-                    return out, "ai"
-                print(f"  ! Výklad od AI je moc krátký ({word_count(out)} slov), zkouším dál.")
+            out = fn(model, material)
+            if out is None:
+                continue  # chybí klíč/token pro tuhle službu
+            out = normalize_paragraphs(out.strip().strip('"'))
+            if word_count(out) >= 300:  # pojistka proti krátké/useknuté odpovědi
+                print(f"  ✓ výklad napsal {sluzba} ({model})")
+                return out
+            print(f"  ! {sluzba} ({model}): výklad moc krátký ({word_count(out)} slov), zkouším dál.")
         except urllib.error.HTTPError as e:
-            print(f"  ! GitHub Models ({model}): HTTP {e.code} — {e.read()[:200]!r}")
+            print(f"  ! {sluzba} ({model}): HTTP {e.code} — {e.read()[:200]!r}")
         except Exception as e:
-            print(f"  ! GitHub Models ({model}): {e}")
-    print("  ! AI výklad se nepovedl, použije se perex a začátek článku ze zdroje.")
-    return fallback_text(perex, paragraphs), "zdroj"
+            print(f"  ! {sluzba} ({model}): {e}")
+    return None
 
 
 # ---------------------------------------------------------------------------
@@ -377,9 +373,6 @@ def render(data) -> None:
         if it.get("published"):
             p = dt.datetime.fromisoformat(it["published"]).astimezone(TZ)
             pub = f" · vydáno {p.day}. {p.month}. {p.year}"
-        badge = "" if it.get("via") == "ai" else \
-            ('<span class="chip warn" title="AI výklad se dnes nepovedl, zobrazen je perex '
-             'a začátek článku ze zdroje">text ze zdroje (bez AI)</span>')
         vyklad = "\n".join(f"            <p>{html.escape(p)}</p>"
                            for p in it["summary"].split("\n\n"))
         cards.append(f"""
@@ -387,7 +380,7 @@ def render(data) -> None:
         <div class="num" aria-hidden="true">{n}</div>
         <div class="card-body">
           <h2>{html.escape(it["title"])}</h2>
-          <p class="meta-line"><span class="chip">&#127908; cca {minutes_txt(words)} min ({words} slov)</span>{badge}</p>
+          <p class="meta-line"><span class="chip">&#127908; cca {minutes_txt(words)} min ({words} slov)</span></p>
           <div class="vyklad">
 {vyklad}
           </div>
@@ -453,8 +446,11 @@ def main():
     for it in items:
         print(f"* {it['source']}: {it['title']}")
         paragraphs = fetch_article_paragraphs(it["url"])
-        summary, via = summarize(it["title"], it["source"], it["perex"], paragraphs)
-        print(f"  → výklad: {word_count(summary)} slov ({via})")
+        summary = summarize(it["title"], it["source"], it["perex"], paragraphs)
+        if summary is None:
+            print("!! Žádná AI teď není dostupná — stránka zůstává na posledním úspěšném dni.")
+            sys.exit(1)
+        print(f"  → výklad: {word_count(summary)} slov")
         out_items.append({
             "source": it["source"],
             "source_home": it["source_home"],
@@ -462,7 +458,7 @@ def main():
             "url": it["url"],
             "published": it["published"].isoformat() if it["published"] else None,
             "summary": summary,
-            "via": via,
+            "via": "ai",
         })
 
     data = {
