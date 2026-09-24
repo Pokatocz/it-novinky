@@ -53,6 +53,13 @@
     font-size: 0.85rem; color: var(--muted);
   }
   .chip.warn { background: var(--chip-warn-bg); color: var(--chip-warn-ink); border-color: transparent; }
+  .navlink {
+    display: inline-block; padding: 8px 14px; border-radius: 10px;
+    background: var(--card); border: 1px solid var(--line);
+    color: var(--accent); font-weight: 600; font-size: 0.95rem; text-decoration: none;
+  }
+  .navlink:hover { border-color: var(--accent); }
+  .page-nav { margin: -8px 0 24px; }
   .card {
     display: flex; gap: 14px;
     background: var(--card); border: 1px solid var(--line); border-radius: 14px;
@@ -102,6 +109,10 @@
     </div>
   </header>
 
+  <nav class="page-nav no-print">
+    <a class="navlink" href="karticky.html">&#127183; Kartičky IT a HTTP &mdash; procvičování &rarr;</a>
+  </nav>
+
   <main>
 %%CARDS%%
 
@@ -115,6 +126,7 @@
     V&yacute;klady p&iacute;&scaron;e automaticky um&#283;l&aacute; inteligence z uveden&yacute;ch zdroj&#367; (%%SOURCES%%)
     &mdash; p&#345;ed p&#345;ednesem je dobr&eacute; si zdroje proj&iacute;t. Kdy&#382; se v&yacute;klady nepoda&#345;&iacute;
     vygenerovat, z&#367;st&aacute;v&aacute; na str&aacute;nce posledn&iacute; &uacute;sp&#283;&scaron;n&yacute; den.</p>
+    <p>Chce&scaron; si to zapamatovat? Zkus <a href="karticky.html">kart&iacute;&#269;ky IT a HTTP</a>.</p>
     <p>Vygenerov&aacute;no automaticky %%GENERATED%% &middot; str&aacute;nka b&#283;&#382;&iacute; na GitHub Pages a data se
     obnovuj&iacute; ka&#382;d&yacute; den v&nbsp;5:00 r&aacute;no.</p>
   </footer>
