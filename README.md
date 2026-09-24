@@ -13,16 +13,26 @@ GitHub Actions (každý den v 5:00 pražského času)
    └─ scripts/update_news.py
         1. stáhne RSS z Root.cz, Lupa.cz a CzechCrunch
         2. vybere 3 nejnovější IT novinky (z každého zdroje jednu)
-        3. stáhne text článků a nechá GitHub Models (AI) napsat 3 výklady po ~3 minutách
+        3. stáhne text článků a nechá AI (Gemini) napsat 3 výklady po ~3 minutách
         4. uloží docs/data.json a vygeneruje stránku docs/index.html
         5. workflow změny commitne → GitHub Pages stránku obnoví
 ```
 
-- AI výklady běží přes **GitHub Models** — zdarma, bez API klíče, stačí vestavěný
-  `GITHUB_TOKEN` (workflow má `permissions: models: read`).
-- Když AI zrovna nejede, výklad se poskládá z perexu a začátku článku ze zdroje
-  (u novinky se pak ukáže štítek „text ze zdroje (bez AI)“).
+- Výklady píše **vždy AI** — primárně **Google Gemini** (zdarma, klíč v tajemství
+  `GEMINI_API_KEY`), záložně GitHub Models přes vestavěný `GITHUB_TOKEN`
+  (tuhle službu ale GitHub postupně vypíná).
+- Když žádná AI zrovna není dostupná, běh skončí chybou a na stránce zůstane
+  poslední úspěšný den — nikdy se nezveřejní nic jiného než AI výklad.
 - Vše je čistý Python bez závislostí + jeden HTML soubor. Nic se neinstaluje.
+
+## Nastavení AI klíče (jednou, zdarma)
+
+1. Přihlášen Google účtem otevři **https://aistudio.google.com/apikey**
+   a klikni na **Create API key** — klíč zkopíruj.
+2. V repozitáři: Settings → **Secrets and variables → Actions** →
+   **New repository secret** → Name: `GEMINI_API_KEY`, Secret: vlož klíč → Add secret.
+3. Klíč nikomu neposílej a nikam jinam nevkládej — v tajemstvích repozitáře je v bezpečí
+   (neuvidí ho ani návštěvníci, ani se neobjeví v logu).
 
 ## Nasazení na GitHub (jednou, cca 5 minut)
 
@@ -67,14 +77,13 @@ GitHub Actions (každý den v 5:00 pražského času)
 - Zdroje a jejich filtry se dají upravit nahoře v `scripts/update_news.py`
   (seznam `FEEDS`), vzhled stránky v `scripts/template.html`.
 - Ruční spuštění na počítači: `python3 scripts/update_news.py`
-  (bez tokenu se místo AI použijí perexy; s tokenem: nastav proměnnou
-  `MODELS_TOKEN` na GitHub fine-grained token s oprávněním *models: read*).
+  (nastav si proměnnou prostředí `GEMINI_API_KEY` se svým klíčem).
 
 ## Struktura projektu
 
 ```
 ├── .github/workflows/novinky.yml   # denní automatizace (GitHub Actions)
-├── scripts/update_news.py          # stažení, výběr, AI shrnutí, render
+├── scripts/update_news.py          # stažení, výběr, AI výklady, render
 ├── scripts/template.html           # šablona stránky
 └── docs/                           # publikovaná stránka (GitHub Pages)
     ├── index.html                  # vygenerovaná stránka
