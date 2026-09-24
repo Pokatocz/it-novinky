@@ -23,6 +23,7 @@ import json
 import os
 import re
 import sys
+import time
 import urllib.error
 import urllib.request
 import xml.etree.ElementTree as ET
@@ -307,13 +308,24 @@ def call_gemini(model: str, material: str):
         with urllib.request.urlopen(req, timeout=120) as resp:
             return json.loads(resp.read().decode("utf-8"))
 
-    try:
-        data = posli(True)
-    except urllib.error.HTTPError as e:
-        if e.code != 400:
+    # Volné modely bývají chvílemi přetížené (503) — zkusíme to několikrát po sobě.
+    for pokus in range(3):
+        try:
+            try:
+                data = posli(True)
+            except urllib.error.HTTPError as e:
+                if e.code != 400:
+                    raise
+                # model nemusí umět thinkingConfig — zkus to bez něj
+                data = posli(False)
+            break
+        except urllib.error.HTTPError as e:
+            if e.code in (429, 500, 502, 503) and pokus < 2:
+                cekej = 10 * (pokus + 1)
+                print(f"    {model}: HTTP {e.code} (přetížené) — zkouším znovu za {cekej} s")
+                time.sleep(cekej)
+                continue
             raise
-        # model nemusí umět thinkingConfig — zkus to bez něj
-        data = posli(False)
 
     kandidati = data.get("candidates") or []
     if not kandidati:
@@ -348,8 +360,8 @@ def summarize(title: str, source: str, perex: str, paragraphs):
     body = "\n\n".join(paragraphs)[:6000]
     material = (f"Titulek: {title}\nZdroj: {source}\n\nPodklad z článku:\nPerex: {perex}"
                 + (f"\n\nText článku:\n{body}" if body else ""))
-    modely = list(GEMINI_MODELY)
-    for m in gemini_extra_modely():
+    modely = list(gemini_extra_modely())      # co API právě nabízí
+    for m in GEMINI_MODELY:                   # + napevno zapsané jako záloha
         if m not in modely:
             modely.append(m)
     pokusy = ([("Gemini", m, call_gemini) for m in modely]
