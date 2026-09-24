@@ -1,0 +1,539 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Kartičky IT a HTTP</title>
+<meta name="description" content="Otáčecí kartičky na procvičení osobností IT, stavových kódů HTTP a jejich skupin.">
+<style>
+  :root {
+    --bg: #f4f6fb;
+    --card: #ffffff;
+    --ink: #1c2333;
+    --muted: #5b6478;
+    --accent: #2456e6;
+    --accent-ink: #ffffff;
+    --line: #e3e7f0;
+    --num-bg: #e8eeff;
+    --ok: #1a7f4b;
+    --ok-ink: #ffffff;
+    --bad: #c0392b;
+    --bad-bg: #fdeceb;
+    --s1: #5b6478;
+    --s2: #1a7f4b;
+    --s3: #2456e6;
+    --s4: #a86b00;
+    --s5: #c0392b;
+    --shadow: 0 1px 2px rgba(28, 35, 51, .05), 0 12px 28px -14px rgba(28, 35, 51, .22);
+    --mono: ui-monospace, "Cascadia Mono", Consolas, "Courier New", monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      color-scheme: dark;
+      --bg: #12151d;
+      --card: #1b2030;
+      --ink: #e8ebf4;
+      --muted: #9aa3b8;
+      --accent: #7d9bff;
+      --accent-ink: #0e1322;
+      --line: #2a3145;
+      --num-bg: #26304d;
+      --ok: #4ec78d;
+      --ok-ink: #0b1a12;
+      --bad: #f2786b;
+      --bad-bg: #3a201e;
+      --s1: #9aa3b8;
+      --s2: #4ec78d;
+      --s3: #7d9bff;
+      --s4: #e8a33d;
+      --s5: #f2786b;
+      --shadow: 0 1px 2px rgba(0, 0, 0, .4), 0 16px 34px -18px rgba(0, 0, 0, .7);
+    }
+  }
+  * { box-sizing: border-box; }
+  [hidden] { display: none !important; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: "Segoe UI", system-ui, -apple-system, Roboto, "Helvetica Neue", Arial, sans-serif;
+    line-height: 1.6;
+  }
+  .wrap { max-width: 860px; margin: 0 auto; padding: 28px 16px 60px; }
+  header h1 { margin: 0 0 4px; font-size: 1.9rem; letter-spacing: -0.02em; }
+  .lead { color: var(--muted); font-size: 1.05rem; margin: 0; max-width: 60ch; }
+  .meta { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 14px 0 22px; }
+  .chip {
+    display: inline-block; padding: 3px 10px; border-radius: 999px;
+    background: var(--card); border: 1px solid var(--line);
+    font-size: 0.85rem; color: var(--muted);
+  }
+  .navlink {
+    display: inline-block; padding: 8px 14px; border-radius: 10px;
+    background: var(--card); border: 1px solid var(--line);
+    color: var(--accent); font-weight: 600; font-size: 0.95rem; text-decoration: none;
+  }
+  .navlink:hover { border-color: var(--accent); }
+
+  button { font: inherit; color: inherit; }
+  :focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+
+  .tabs { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
+  .tab {
+    border: 1px solid var(--line); background: var(--card); color: var(--ink);
+    font-weight: 600; font-size: 0.95rem; padding: 8px 15px; border-radius: 999px;
+    cursor: pointer; display: inline-flex; gap: 8px; align-items: baseline;
+  }
+  .tab .n { font-family: var(--mono); font-size: 0.75rem; font-weight: 500; color: var(--muted); }
+  .tab[aria-selected="true"] { background: var(--accent); border-color: transparent; color: var(--accent-ink); }
+  .tab[aria-selected="true"] .n { color: inherit; opacity: .75; }
+
+  .controls { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; justify-content: space-between; }
+  .seg { display: inline-flex; flex-wrap: wrap; background: var(--bg); border: 1px solid var(--line); border-radius: 11px; padding: 3px; gap: 3px; }
+  .seg button { border: 0; background: transparent; color: var(--muted); font-size: 0.9rem; font-weight: 600; padding: 7px 12px; border-radius: 8px; cursor: pointer; }
+  .seg button[aria-pressed="true"] { background: var(--card); color: var(--ink); box-shadow: 0 1px 3px rgba(0, 0, 0, .12); }
+  .ghost {
+    border: 1px solid var(--line); background: var(--card); color: var(--ink);
+    font-size: 0.9rem; font-weight: 600; padding: 8px 14px; border-radius: 10px;
+    cursor: pointer; display: inline-flex; gap: 7px; align-items: center;
+  }
+  .ghost svg { width: 16px; height: 16px; }
+  .ghost:hover { filter: brightness(1.03); border-color: var(--accent); }
+
+  .progress { display: flex; flex-direction: column; gap: 8px; margin: 18px 0; }
+  .progress .row { display: flex; justify-content: space-between; gap: 12px; font-size: 0.92rem; color: var(--muted); font-variant-numeric: tabular-nums; }
+  .progress .row b { color: var(--ink); }
+  .progress .row .miss b { color: var(--bad); }
+  .bar { height: 6px; border-radius: 99px; background: var(--line); overflow: hidden; }
+  .bar i { display: block; height: 100%; width: 0; background: var(--accent); border-radius: inherit; transition: width .35s ease; }
+
+  .stage { display: flex; flex-direction: column; gap: 14px; }
+  .flipcard { perspective: 1600px; cursor: pointer; border-radius: 14px; outline: none; }
+  .flipcard:focus-visible { outline: 3px solid var(--accent); outline-offset: 4px; }
+  .flipcard.enter { animation: enter .3s ease-out; }
+  @keyframes enter { from { opacity: 0; translate: 0 10px; } }
+  .inner { display: grid; transform-style: preserve-3d; transition: transform .55s cubic-bezier(.2, .75, .25, 1); }
+  .flipcard.flipped .inner { transform: rotateY(180deg); }
+  .flipcard.instant .inner { transition: none; }
+  .face {
+    grid-area: 1/1; backface-visibility: hidden; -webkit-backface-visibility: hidden;
+    background: var(--card); border: 1px solid var(--line); border-radius: 14px; box-shadow: var(--shadow);
+    min-height: clamp(270px, 48vw, 320px); padding: 24px 22px 20px;
+    display: flex; flex-direction: column; gap: 14px; position: relative; overflow: hidden;
+  }
+  .face::before { content: ""; position: absolute; inset: 0 0 auto 0; height: 6px; background: var(--stripe, var(--line)); }
+  .back { transform: rotateY(180deg); }
+  .eyebrow { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
+  .label { font-size: 0.74rem; font-weight: 700; letter-spacing: .09em; text-transform: uppercase; color: var(--muted); padding-top: 3px; }
+  .body { flex: 1; display: flex; flex-direction: column; justify-content: center; gap: 12px; }
+  .q { font-size: clamp(1.15rem, 3.6vw, 1.4rem); line-height: 1.45; margin: 0; }
+  .name { font-weight: 700; font-size: clamp(1.8rem, 7vw, 2.5rem); line-height: 1.1; letter-spacing: -0.02em; margin: 0; }
+  .name.sm { font-size: clamp(1.35rem, 4.6vw, 1.7rem); }
+  .note { margin: 0; color: var(--muted); font-size: 1rem; max-width: 56ch; }
+  .codeline { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 16px; }
+  .code { font-family: var(--mono); font-weight: 700; font-size: clamp(3.2rem, 12vw, 4.4rem); line-height: 1; letter-spacing: -0.03em; color: var(--c, var(--ink)); }
+  .code.sm { font-size: clamp(2rem, 7vw, 2.6rem); }
+  .cname { font-weight: 700; font-size: clamp(1.3rem, 4.2vw, 1.7rem); line-height: 1.2; }
+  .ex { margin: 0; font-family: var(--mono); font-size: 0.84rem; color: var(--muted); line-height: 1.6; }
+  .hint { margin: 0; font-size: 0.84rem; color: var(--muted); }
+
+  .actions { min-height: 52px; }
+  .btn {
+    border: 1px solid var(--line); font-weight: 600; font-size: 1rem; min-height: 52px;
+    border-radius: 10px; cursor: pointer; display: inline-flex; align-items: center;
+    justify-content: center; gap: 9px; padding: 0 18px; width: 100%;
+    background: var(--bg); color: var(--ink);
+  }
+  .btn svg { width: 19px; height: 19px; flex: none; }
+  .btn:hover { filter: brightness(1.05); }
+  .btn.primary { background: var(--accent); color: var(--accent-ink); border-color: transparent; }
+  .btn.secondary { background: var(--card); }
+  .grade { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .btn.bad { background: var(--bad-bg); color: var(--bad); border-color: transparent; }
+  .btn.ok { background: var(--ok); color: var(--ok-ink); border-color: transparent; }
+  .keys { margin: 0; font-size: 0.84rem; color: var(--muted); display: flex; flex-wrap: wrap; gap: 6px 16px; justify-content: center; }
+  kbd { font-family: var(--mono); font-size: 0.74rem; border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 5px; padding: 1px 6px; background: var(--card); color: var(--ink); }
+  @media (hover: none) { .keys { display: none; } }
+
+  .done { background: var(--card); border: 1px solid var(--line); border-radius: 14px; box-shadow: var(--shadow); padding: 24px 22px; display: flex; flex-direction: column; gap: 16px; overflow: hidden; position: relative; }
+  .done::before { content: ""; position: absolute; inset: 0 0 auto 0; height: 6px; background: var(--accent); }
+  .score { margin: 0; font-weight: 700; font-size: clamp(2.6rem, 11vw, 3.8rem); line-height: 1; letter-spacing: -0.03em; font-variant-numeric: tabular-nums; }
+  .score small { font-size: .42em; color: var(--muted); font-weight: 600; letter-spacing: 0; }
+  .done .verdict { margin: 0; font-size: 1.08rem; }
+  .done-actions { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px; }
+  .missed { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; border-top: 1px solid var(--line); }
+  .missed li { padding: 10px 0; border-bottom: 1px solid var(--line); display: grid; gap: 2px; }
+  .missed b { font-size: 1.05rem; }
+  .missed span { color: var(--muted); font-size: 0.93rem; }
+
+  details.list { margin-top: 26px; border-top: 1px solid var(--line); padding-top: 14px; }
+  details.list summary { cursor: pointer; font-weight: 600; color: var(--muted); }
+  details.list[open] summary { margin-bottom: 12px; }
+  .tablewrap { overflow-x: auto; }
+  .tablewrap h3 { font-size: 1.05rem; margin: 18px 0 6px; }
+  table { border-collapse: collapse; width: 100%; font-size: 0.92rem; }
+  th, td { text-align: left; vertical-align: top; padding: 8px 10px 8px 0; border-bottom: 1px solid var(--line); }
+  th { font-size: 0.72rem; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); font-weight: 700; }
+  td:first-child { font-weight: 600; white-space: nowrap; }
+  td.mono { font-family: var(--mono); }
+
+  footer { margin-top: 30px; color: var(--muted); font-size: 0.85rem; }
+  footer a { color: var(--accent); }
+  .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+  @media (prefers-reduced-motion: reduce) {
+    .inner, .bar i { transition: none; }
+    .flipcard.enter { animation: none; }
+  }
+  @media print {
+    body { background: #fff; color: #000; }
+    .tabs, .controls, .stage, .progress, .navlink { display: none !important; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>&#127183; Kartičky IT a HTTP</h1>
+    <p class="lead">Přečti si otázku, zkus si odpovědět, otoč kartu a ohodnoť se. Co nevíš, vrátí se ti znovu, dokud to neumíš.</p>
+    <div class="meta">
+      <span class="chip">osobnosti IT</span>
+      <span class="chip">stavové kódy HTTP</span>
+      <span class="chip">funguje i bez internetu</span>
+    </div>
+    <p><a class="navlink" href="./">&#128240; Zpět na IT novinky dne</a></p>
+  </header>
+
+  <nav class="tabs" id="tabs" role="tablist" aria-label="Balíček"></nav>
+
+  <div class="controls">
+    <div class="seg" id="dir" role="group" aria-label="Směr otázky"></div>
+    <button class="ghost" id="restart" type="button">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 3h5v5"/><path d="M4 20 21 3"/><path d="M21 16v5h-5"/><path d="m15 15 6 6"/><path d="M4 4l5 5"/></svg>
+      Zamíchat znovu
+    </button>
+  </div>
+
+  <section class="progress" aria-label="Postup">
+    <div class="row"><span>Umím <b id="known">0</b> z <b id="total">0</b></span><span class="miss">Chyby <b id="misses">0</b></span></div>
+    <div class="bar"><i id="barFill"></i></div>
+  </section>
+
+  <main class="stage" id="stage">
+    <div class="flipcard" id="card" tabindex="0" role="button" aria-label="Otočit kartičku">
+      <div class="inner">
+        <div class="face front" id="front"></div>
+        <div class="face back" id="back" aria-hidden="true"></div>
+      </div>
+    </div>
+    <div class="actions">
+      <button class="btn primary" id="flipBtn" type="button">Otočit kartu</button>
+      <div class="grade" id="grade" hidden>
+        <button class="btn bad" id="noBtn" type="button">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg>
+          Špatně
+        </button>
+        <button class="btn ok" id="yesBtn" type="button">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>
+          Správně
+        </button>
+      </div>
+    </div>
+    <p class="keys"><span><kbd>Mezerník</kbd> otočí kartu</span><span><kbd>&larr;</kbd> špatně</span><span><kbd>&rarr;</kbd> správně</span></p>
+  </main>
+
+  <section class="done" id="done" hidden>
+    <span class="label">Balíček hotový</span>
+    <p class="score" id="score">0 <small>/ 0</small></p>
+    <p class="verdict" id="verdict"></p>
+    <div class="done-actions">
+      <button class="btn primary" id="retryMissed" type="button">Procvičit chyby</button>
+      <button class="btn secondary" id="again" type="button">Celý balíček znovu</button>
+    </div>
+    <div id="missedWrap">
+      <span class="label">Tyhle ti daly zabrat</span>
+      <ul class="missed" id="missed"></ul>
+    </div>
+  </section>
+
+  <details class="list">
+    <summary>Zobrazit celý balíček</summary>
+    <div class="tablewrap" id="table"></div>
+  </details>
+
+  <footer>
+    <p>Kartičky se učí spolu s tebou &mdash; co označíš jako špatně, zamíchá se zpátky do balíčku.
+    Postup se nikam neodesílá, zůstává jen v tomhle prohlížeči.</p>
+    <p>Součást stránky <a href="./">IT novinky dne</a> &middot; běží na GitHub Pages.</p>
+  </footer>
+
+  <div class="sr" aria-live="polite" id="live"></div>
+</div>
+
+<script>
+const PEOPLE = [
+  ["Bill Gates","Microsoft","Spoluzakladatel Microsoftu, zásadní osobnost osobních počítačů a systému Windows."],
+  ["Steve Jobs","Apple","Spoluzakladatel Applu, výrazně ovlivnil vývoj Macu, iPodu a iPhonu."],
+  ["Steve Wozniak","Apple","Spoluzakladatel Applu a technický tvůrce prvních počítačů Apple."],
+  ["Linus Torvalds","Linux","Autor linuxového jádra, na kterém běží velká část serverů a dalších zařízení."],
+  ["Tim Berners-Lee","World Wide Web","Vytvořil základy webu, zejména WWW, HTML a HTTP."],
+  ["Larry Page","Google","Spoluzakladatel Googlu a jedna z klíčových osobností internetového vyhledávání."],
+  ["Mark Zuckerberg","Facebook / Meta","Zakladatel Facebooku, jedné z největších sociálních sítí."],
+  ["Jeff Bezos","Amazon / AWS","Zakladatel Amazonu; AWS patří mezi největší cloudové platformy světa."],
+  ["Jensen Huang","NVIDIA","Spoluzakladatel a šéf NVIDIA, firmy zásadní pro grafické karty a dnešní AI."],
+  ["Sam Altman","OpenAI","Šéf OpenAI, firmy stojící za ChatGPT a významnými modely generativní AI."],
+  ["Peter Thiel","PayPal / Palantir","Spoluzakladatel PayPalu a Palantiru; Palantir vyvíjí software pro analýzu velkého množství dat."],
+  ["Elon Musk","Tesla / SpaceX / xAI","Technologický podnikatel spojený s elektromobily, kosmonautikou a umělou inteligencí."],
+  ["Guido van Rossum","Python","Tvůrce programovacího jazyka Python."],
+  ["James Gosling","Java","Hlavní autor programovacího jazyka Java."],
+  ["Brendan Eich","JavaScript","Tvůrce JavaScriptu, jednoho ze základních jazyků webu."],
+  ["Dennis Ritchie","C / Unix","Tvůrce jazyka C a spoluautor operačního systému Unix."],
+  ["Alan Turing","Teoretická informatika / AI","Jeden ze zakladatelů moderní informatiky, známý Turingovým strojem a Turingovým testem.","Jeden ze zakladatelů moderní informatiky, známý ……ovým strojem a ……ovým testem."],
+  ["Ada Lovelace","Historie programování","Často označována za první programátorku, popsala algoritmus pro Babbageův analytický stroj."],
+  ["John von Neumann","Architektura počítačů","Zásadně ovlivnil princip moderního počítače, kde jsou program i data uložené v paměti."],
+  ["Ivo Lukačovič","Seznam.cz","Zakladatel Seznam.cz, jednoho z nejvýznamnějších českých internetových portálů."]
+].map(([n,t,d,q],i)=>({type:"person",id:"p"+i,n,t,d,q}));
+
+const CODES = [
+  [200,"OK","Požadavek uspěl. Server vrací požadovaná data nebo stránku."],
+  [201,"Created","Byl vytvořen nový záznam, například uživatelský účet."],
+  [202,"Accepted","Server požadavek přijal, ale zpracování ještě nemusí být dokončeno."],
+  [204,"No Content","Požadavek uspěl, ale server neposílá žádný obsah."],
+  [301,"Moved Permanently","Zdroj se trvale přesunul na jinou adresu."],
+  [302,"Found","Zdroj je dočasně dostupný na jiné adrese."],
+  [304,"Not Modified","Zdroj se nezměnil. Použij svou uloženou kopii z cache."],
+  [307,"Temporary Redirect","Dočasné přesměrování se zachováním metody požadavku, například POST."],
+  [308,"Permanent Redirect","Trvalé přesměrování se zachováním metody požadavku."],
+  [400,"Bad Request","Požadavek je chybný, například má nesprávný formát."],
+  [401,"Unauthorized","Chybí platné ověření identity, například správný API klíč."],
+  [403,"Forbidden","Server přístup odmítá, například nemáš potřebné oprávnění."],
+  [404,"Not Found","Požadovaná stránka nebo záznam nebyly nalezeny."],
+  [405,"Method Not Allowed","Tato adresa nepodporuje použitou metodu, například POST místo GET."],
+  [408,"Request Timeout","Server včas neobdržel celý požadavek."],
+  [409,"Conflict","Požadavek je v konfliktu s aktuálním stavem, například při souběžných úpravách."],
+  [413,"Content Too Large","Posílaná data jsou příliš velká, například nahrávaný soubor."],
+  [415,"Unsupported Media Type","Server nepodporuje formát posílaných dat."],
+  [422,"Unprocessable Content","Formát je srozumitelný, ale obsah nelze zpracovat, například neplatné hodnoty polí."],
+  [429,"Too Many Requests","Posíláš příliš mnoho požadavků. Je potřeba zpomalit."],
+  [500,"Internal Server Error","Při zpracování nastala neočekávaná chyba serveru."],
+  [502,"Bad Gateway","Prostředník dostal neplatnou odpověď od dalšího serveru."],
+  [503,"Service Unavailable","Služba je dočasně nedostupná, například kvůli přetížení nebo údržbě."],
+  [504,"Gateway Timeout","Prostředník se včas nedočkal odpovědi od dalšího serveru."]
+].map(([c,n,d])=>({type:"code",id:"c"+c,c,n,d}));
+
+const GROUPS = [
+  ["1xx","Informace o průběhu zpracování"],
+  ["2xx","Požadavek uspěl"],
+  ["3xx","Přesměrování nebo práce s uloženou kopií"],
+  ["4xx","Problém s požadavkem, přístupem nebo hledaným zdrojem"],
+  ["5xx","Problém na straně serveru"]
+].map(([g,m])=>{
+  const list = CODES.filter(c=>String(c.c)[0]===g[0]).map(c=>c.c);
+  const ex = list.length ? "Např. " + list.join(", ") : "Běžně je neuvidíš, např. 100 Continue.";
+  return {type:"group",id:"g"+g,g,m,ex};
+});
+
+const DECKS = {
+  people:{label:"Osobnosti IT", dirs:["Popis → jméno","Jméno → popis"], cards:()=>PEOPLE},
+  codes:{label:"HTTP kódy", dirs:["Význam → kód","Kód → význam"], cards:()=>CODES},
+  groups:{label:"Skupiny kódů", dirs:["Význam → skupina","Skupina → význam"], cards:()=>GROUPS},
+  mix:{label:"Vše dohromady", dirs:["Popis → odpověď","Obráceně"], cards:()=>[...PEOPLE,...CODES,...GROUPS]}
+};
+
+const $ = s => document.querySelector(s);
+const esc = s => String(s).replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const shuffle = a => { for(let i=a.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; } return a; };
+
+const S = {deck:"people", rev:false, queue:[], cur:null, flipped:false, total:0, known:0, right:0, wrong:new Map()};
+
+try{
+  const saved = JSON.parse(localStorage.getItem("karticky-it") || "{}");
+  if(saved.deck && DECKS[saved.deck]) S.deck = saved.deck;
+  if(typeof saved.rev === "boolean") S.rev = saved.rev;
+}catch(e){}
+function save(){ try{ localStorage.setItem("karticky-it", JSON.stringify({deck:S.deck, rev:S.rev})); }catch(e){} }
+
+const eb = (label, right="") => `<div class="eyebrow"><span class="label">${label}</span>${right}</div>`;
+const chip = t => `<span class="chip">${esc(t)}</span>`;
+const body = inner => `<div class="body">${inner}</div>`;
+const hint = `<p class="hint">Klepni na kartu a otoč ji</p>`;
+const col = k => `var(--s${k})`;
+
+function build(c, rev){
+  if(c.type==="person"){
+    return rev ? {
+      front: eb("Čím je známý/á?") + body(`<p class="name">${esc(c.n)}</p>`) + hint,
+      back: eb("Odpověď", chip(c.t)) + body(`<p class="name sm">${esc(c.n)}</p><p class="q">${esc(c.d)}</p>`),
+      sf:"var(--line)", sb:"var(--accent)", say:c.d
+    } : {
+      front: eb("Kdo to je?", chip(c.t)) + body(`<p class="q">${esc(c.q||c.d)}</p>`) + hint,
+      back: eb("Odpověď", chip(c.t)) + body(`<p class="name">${esc(c.n)}</p><p class="note">${esc(c.d)}</p>`),
+      sf:"var(--line)", sb:"var(--accent)", say:c.n
+    };
+  }
+  if(c.type==="code"){
+    const k = String(c.c)[0];
+    const big = (sm) => `<span class="code${sm?" sm":""}" style="--c:${col(k)}">${c.c}</span>`;
+    return rev ? {
+      front: eb("Co znamená kód?") + body(big()) + hint,
+      back: eb("Odpověď", chip("skupina "+k+"xx")) + body(`<div class="codeline">${big(true)}<span class="cname">${esc(c.n)}</span></div><p class="q">${esc(c.d)}</p>`),
+      sf:col(k), sb:col(k), say:c.n+". "+c.d
+    } : {
+      front: eb("Který kód?") + body(`<p class="q">${esc(c.d)}</p>`) + hint,
+      back: eb("Odpověď", chip("skupina "+k+"xx")) + body(`<div class="codeline">${big()}<span class="cname">${esc(c.n)}</span></div><p class="note">${esc(c.d)}</p>`),
+      sf:"var(--line)", sb:col(k), say:c.c+" "+c.n
+    };
+  }
+  const k = c.g[0];
+  const big = (sm) => `<span class="code${sm?" sm":""}" style="--c:${col(k)}">${c.g}</span>`;
+  const ex = `<p class="ex">${esc(c.ex)}</p>`;
+  return rev ? {
+    front: eb("Co znamená skupina?") + body(big()) + hint,
+    back: eb("Odpověď") + body(`${big(true)}<p class="q">${esc(c.m)}</p>${ex}`),
+    sf:col(k), sb:col(k), say:c.m
+  } : {
+    front: eb("Která skupina kódů?") + body(`<p class="q">${esc(c.m)}</p>`) + hint,
+    back: eb("Odpověď") + body(`${big()}<p class="note">${esc(c.m)}</p>${ex}`),
+    sf:"var(--line)", sb:col(k), say:c.g
+  };
+}
+
+function answerText(c){
+  if(c.type==="person") return [c.n, c.t];
+  if(c.type==="code") return [c.c+" "+c.n, c.d];
+  return [c.g, c.m];
+}
+
+/* ---------- UI ---------- */
+function renderTabs(){
+  $("#tabs").innerHTML = Object.entries(DECKS).map(([key,d]) =>
+    `<button class="tab" role="tab" type="button" data-deck="${key}" aria-selected="${key===S.deck}">${d.label}<span class="n">${d.cards().length}</span></button>`
+  ).join("");
+  $("#dir").innerHTML = DECKS[S.deck].dirs.map((label,i) =>
+    `<button type="button" data-rev="${i===1}" aria-pressed="${(i===1)===S.rev}">${label}</button>`
+  ).join("");
+}
+
+function renderTable(){
+  const people = `<h3>Osobnosti IT</h3><table><thead><tr><th>Jméno</th><th>Oblast</th><th>Co udělal/a</th></tr></thead><tbody>${
+    PEOPLE.map(p=>`<tr><td>${esc(p.n)}</td><td>${esc(p.t)}</td><td>${esc(p.d)}</td></tr>`).join("")}</tbody></table>`;
+  const codes = `<h3>Stavové kódy HTTP</h3><table><thead><tr><th>Kód</th><th>Název</th><th>Vysvětlení</th></tr></thead><tbody>${
+    CODES.map(c=>`<tr><td class="mono" style="color:${col(String(c.c)[0])}">${c.c}</td><td>${esc(c.n)}</td><td>${esc(c.d)}</td></tr>`).join("")}</tbody></table>`;
+  const groups = `<h3>Skupiny kódů</h3><table><thead><tr><th>Skupina</th><th>Význam</th></tr></thead><tbody>${
+    GROUPS.map(g=>`<tr><td class="mono" style="color:${col(g.g[0])}">${g.g}</td><td>${esc(g.m)}</td></tr>`).join("")}</tbody></table>`;
+  $("#table").innerHTML = {people, codes, groups, mix: people+codes+groups}[S.deck];
+}
+
+function updateProgress(){
+  $("#known").textContent = S.known;
+  $("#total").textContent = S.total;
+  $("#misses").textContent = S.wrong.size;
+  $("#barFill").style.width = (S.total ? S.known/S.total*100 : 0) + "%";
+}
+
+function start(list){
+  S.queue = shuffle(list.slice());
+  S.total = list.length; S.known = 0; S.right = 0; S.wrong = new Map();
+  $("#done").hidden = true; $("#stage").hidden = false;
+  next();
+}
+
+function next(){
+  updateProgress();
+  if(!S.queue.length){ finish(); return; }
+  S.cur = S.queue.shift();
+  S.flipped = false;
+  const card = $("#card"), f = build(S.cur, S.rev);
+  card.classList.add("instant");
+  card.classList.remove("flipped","enter");
+  $("#front").innerHTML = f.front; $("#front").style.setProperty("--stripe", f.sf);
+  $("#back").innerHTML = f.back;   $("#back").style.setProperty("--stripe", f.sb);
+  $("#front").setAttribute("aria-hidden","false"); $("#back").setAttribute("aria-hidden","true");
+  void card.offsetWidth;
+  card.classList.remove("instant");
+  card.classList.add("enter");
+  $("#flipBtn").hidden = false; $("#grade").hidden = true;
+  $("#live").textContent = "";
+}
+
+function flip(){
+  if(!S.cur || !$("#done").hidden) return;
+  S.flipped = !S.flipped;
+  $("#card").classList.toggle("flipped", S.flipped);
+  $("#front").setAttribute("aria-hidden", String(S.flipped));
+  $("#back").setAttribute("aria-hidden", String(!S.flipped));
+  $("#flipBtn").hidden = S.flipped; $("#grade").hidden = !S.flipped;
+  $("#flipBtn").textContent = "Otočit kartu";
+  if(S.flipped) $("#live").textContent = "Odpověď: " + build(S.cur, S.rev).say;
+}
+
+function grade(ok){
+  if(!S.flipped) return;
+  const c = S.cur;
+  if(ok){
+    S.known++;
+    if(!S.wrong.has(c.id)) S.right++;
+  } else {
+    S.wrong.set(c.id, c);
+    const pos = Math.min(S.queue.length, 2 + Math.floor(Math.random()*3));
+    S.queue.splice(pos, 0, c);
+  }
+  next();
+  focusCard();
+}
+
+function finish(){
+  S.cur = null;
+  $("#stage").hidden = true; $("#done").hidden = false;
+  $("#score").innerHTML = `${S.right} <small>/ ${S.total} napoprvé</small>`;
+  const pct = S.total ? S.right/S.total : 0;
+  $("#verdict").textContent = pct === 1 ? "Bez jediné chyby. Zkus balíček obráceně."
+    : pct >= .8 ? "Skoro všechno napoprvé. Chyby si projdi ještě jednou."
+    : pct >= .5 ? "Dobrý základ. Chyby si zopakuj, půjde to rychleji."
+    : "Tohle chce ještě jedno kolo. Začni chybami.";
+  const missed = [...S.wrong.values()];
+  $("#missedWrap").hidden = !missed.length;
+  $("#retryMissed").hidden = !missed.length;
+  $("#retryMissed").textContent = `Procvičit chyby (${missed.length})`;
+  $("#missed").innerHTML = missed.map(c => { const [a,b] = answerText(c); return `<li><b>${esc(a)}</b><span>${esc(b)}</span></li>`; }).join("");
+  $("#done").querySelector("button:not([hidden])").focus({preventScroll:true});
+}
+
+function focusCard(){ const a = document.activeElement; if(!a || a===document.body || a.hidden || a.closest("[hidden]")) $("#card").focus({preventScroll:true}); }
+
+function loadDeck(){
+  renderTabs(); renderTable(); save();
+  start(DECKS[S.deck].cards());
+}
+
+/* ---------- events ---------- */
+$("#tabs").addEventListener("click", e => {
+  const b = e.target.closest("[data-deck]"); if(!b) return;
+  S.deck = b.dataset.deck; loadDeck(); $("#card").focus({preventScroll:true});
+});
+$("#dir").addEventListener("click", e => {
+  const b = e.target.closest("[data-rev]"); if(!b) return;
+  S.rev = b.dataset.rev === "true"; loadDeck(); $("#card").focus({preventScroll:true});
+});
+$("#restart").addEventListener("click", () => { start(DECKS[S.deck].cards()); $("#card").focus({preventScroll:true}); });
+$("#card").addEventListener("click", flip);
+$("#flipBtn").addEventListener("click", () => { flip(); focusCard(); });
+$("#yesBtn").addEventListener("click", () => grade(true));
+$("#noBtn").addEventListener("click", () => grade(false));
+$("#again").addEventListener("click", () => { start(DECKS[S.deck].cards()); $("#card").focus({preventScroll:true}); });
+$("#retryMissed").addEventListener("click", () => { start([...S.wrong.values()]); $("#card").focus({preventScroll:true}); });
+
+document.addEventListener("keydown", e => {
+  if(!$("#done").hidden || e.altKey || e.ctrlKey || e.metaKey) return;
+  const onControl = e.target.closest && e.target.closest("button, summary, a, input, select, textarea");
+  if(e.key===" " || e.key==="Enter"){
+    if(onControl) return;
+    e.preventDefault(); flip();
+  } else if(e.key==="ArrowRight" && S.flipped){ e.preventDefault(); grade(true); }
+  else if(e.key==="ArrowLeft" && S.flipped){ e.preventDefault(); grade(false); }
+});
+
+loadDeck();
+</script>
+</body>
+</html>
